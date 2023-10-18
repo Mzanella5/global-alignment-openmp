@@ -5,25 +5,6 @@
 #include <limits.h>
 #include <semaphore.h>
 
-
-double calcularPi(int total_points) {
-    int points_inside_circle = 0;
-    double x, y;
-
-    srand(time(NULL));
-
-    for (int i = 0; i < total_points; i++) {
-        x = (double)rand() / RAND_MAX;
-        y = (double)rand() / RAND_MAX;
-
-        if (x * x + y * y <= 1) {
-            points_inside_circle++;
-        }
-    }
-
-    return 4.0 * points_inside_circle / total_points;
-}
-
 int Max(int val1, int val2, int val3)
 {
     int bigger = val1;
@@ -40,24 +21,37 @@ int main(int argc, char *argv[]) {
     int column = 10; // Tamanho do vetor
     int soma = 0;
     int number_process = 16;
-    int block_size = 1;
+    int block_size = 10;
     double start_time, end_time;
     double elapsed_time;
     int threads = omp_get_max_threads();
     sem_t semaphore[threads];
+    int matrix_size;
+    int *vector;
+    int n_blocks = 1;
+    int verbose = 0;
 
     if(argc > 3)
     {
         line = atoi(argv[1]);
         column = atoi(argv[2]);
-        block_size = atoi(argv[3]);
+        n_blocks = atoi(argv[3]);
+        if(argc == 5)
+            verbose = atoi(argv[4]);
+    }
+
+    block_size = line/n_blocks;
+    if (block_size < 1)
+    {
+        printf("Number of blocks can not be bigger than the lines number\n");
+        return 0;
     }
 
     printf("Threads %d\n", threads);
-    printf("NThreads: %d of %d lines per thread\n", line/block_size, block_size);
+    printf("NThreads: %d of %d lines per thread\n", n_blocks, block_size);
 
-    int matrix_size = line * column;
-    int *vector = (int*) malloc(sizeof(int) * matrix_size);
+    matrix_size = line * column;
+    vector = (int*) malloc(sizeof(int) * matrix_size);
 
     if (vector == NULL) {
         printf("Erro na alocação de memória. %lu bytes\n", sizeof(int) * matrix_size);
@@ -77,14 +71,23 @@ int main(int argc, char *argv[]) {
     start_time = omp_get_wtime();
     // Iniciar uma região paralela
     #pragma omp parallel for
-    for (int block = 0; block < line/block_size; block++) {
+    for (int block = 0; block < n_blocks; block++) {
 
         int pid = omp_get_thread_num(); // Obtém o ID da thread
         int lastPid = pid -1;
         if(lastPid == -1)
             lastPid = 15;
 
-        for (int i=block*block_size; i<block*block_size+block_size; i++) {
+        // calcula posicao inicial e final de cada bloco
+        int block_initial_pos = block * block_size;
+        int block_final_pos = block_initial_pos + block_size;
+    
+        // ultima thread fica com o restante das linhas
+        // caso não seja divisível pela quantidade de blocos
+        if(block == n_blocks -1 && n_blocks > 1)
+            block_final_pos = line % n_blocks + block_final_pos;
+
+        for (int i=block_initial_pos; i<block_final_pos; i++) {
             for (int j=0; j<column; j++) {
                 //while(i > 0 && vector[(i-1)*column+j] == INT_MIN);
                 if(i > 0 && vector[(i-1)*column+j] == INT_MIN)
@@ -94,17 +97,17 @@ int main(int argc, char *argv[]) {
                 if(j == 0) vector[i*column+j] = i * -1;
                 else if(i == 0) vector[i*column+j] = j * -1;
                 else vector[i*column+j] = Max(vector[i*column+j-1], vector[(i-1)*column+j-1], vector[(i-1)*column+j]) + 2;
-                //calcularPi(1000000);
                 sem_post(&semaphore[pid]);
             }
             //printf("Thread %d calculou a linha %d do bloco %d\n", pid, i, block);
         }
     }
     end_time = omp_get_wtime();
-    // for (int i = 0; i < matrix_size; i++) {
-    //     printf("%10d|", vector[i]);
-    //     if((i+1)%column == 0) printf("\n");
-    // }
+    if(verbose)
+        for (int i = 0; i < matrix_size; i++) {
+            printf("%10d|", vector[i]);
+            if((i+1)%column == 0) printf("\n");
+        }
 
     elapsed_time = end_time - start_time;
     printf("omp_wtime elapsed time: %f seconds\n", elapsed_time);
