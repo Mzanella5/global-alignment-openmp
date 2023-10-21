@@ -128,53 +128,67 @@ int* InitializeMatrix()
 
 void CalculateSimilarity(int *mat, char *vetA, char *vetB)
 {
-    int block_size, max_threads;
+    int max_threads, block_line_size, block_column_size;
     double start_time, end_time, elapsed_time;
     char *pos = (char*) calloc(1, sizeof(char));
     max_threads = omp_get_max_threads();
-    sem_t semaphore[max_threads];
+    sem_t semaphore[N_BLOCKS][N_BLOCKS];
 
-    block_size = SIZEA / N_BLOCKS;
+    block_line_size = SIZEA / N_BLOCKS;
+    block_column_size = SIZEB / N_BLOCKS;
 
     // Inicializar os semáforos
-    for (int i = 0; i < max_threads; i++) {
-        sem_init(&semaphore[i], 0, 1); // Inicia com 1 recurso disponível
+    for (int i = 0; i < N_BLOCKS; i++) 
+    {
+        for (int j = 0; j < N_BLOCKS; j++) 
+        {
+            if (i==0)
+                sem_init(&semaphore[i][j], 0, 1); // Inicia com 1 recurso disponível
+            else
+                sem_init(&semaphore[i][j], 0, 0); // Inicia com 0 recurso indisponível
+        }
     }
+
+    printf("block_line_size: %d\nblock_column_size: %d\n", block_line_size, block_column_size);
 
     start_time = omp_get_wtime();
     // Iniciar uma região paralela
     #pragma omp parallel for
-    for (int block = 0; block < N_BLOCKS; block++) {
+    for (int block_line = 0; block_line < N_BLOCKS; block_line++) 
+    {
+        for (int block_column = 0; block_column < N_BLOCKS; block_column++)
+        {
+            // calcula posicao inicial e final de cada bloco
+            int block_initial_pos = block_line * block_line_size;
+            int block_final_pos = block_initial_pos + block_line_size;
+        
+            // ultima thread fica com o restante das linhas
+            // caso não seja divisível pela quantidade de blocos
+            if(block_line == N_BLOCKS -1 && N_BLOCKS > 1)
+                block_final_pos = SIZEA % N_BLOCKS + block_final_pos;
 
-        int pid = omp_get_thread_num(); // Obtém o ID da thread
-        int lastPid = pid -1;
-        if(lastPid == -1)
-            lastPid = max_threads-1;
+            sem_wait(&semaphore[block_line][block_column]);
+            for (int i=block_initial_pos; i<block_final_pos; i++) 
+            {
+                int block_initial_column = block_column * block_column_size;
+                int block_final_column = block_initial_column + block_column_size;
+                if (block_column == N_BLOCKS - 1 && N_BLOCKS > 1)
+                    block_final_column = SIZEB % N_BLOCKS + block_final_column;
 
-        // calcula posicao inicial e final de cada bloco
-        int block_initial_pos = block * block_size;
-        int block_final_pos = block_initial_pos + block_size;
-    
-        // ultima thread fica com o restante das linhas
-        // caso não seja divisível pela quantidade de blocos
-        if(block == N_BLOCKS -1 && N_BLOCKS > 1)
-            block_final_pos = SIZEA % N_BLOCKS + block_final_pos;
-
-        for (int i=block_initial_pos; i<block_final_pos; i++) {
-            for (int j=0; j<SIZEB; j++) {
-                while(i > 0 && mat[(i-1)*SIZEB+j] == INT_MIN);
-                // if(i > 0 && mat[(i-1)*SIZEB+j] == INT_MIN)
-                //     sem_wait(&semaphore[lastPid]);
-
-                // calcula
-                if(j == 0) mat[i*SIZEB+j] = i * -1;
-                else if(i == 0) mat[i*SIZEB+j] = j * -1;
-                else{
-                    mat[i*SIZEB+j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
-                    //sem_post(&semaphore[pid]);
+                for (int j=block_initial_column; j<block_final_column; j++) 
+                {
+                    // calcula
+                    if(j == 0) 
+                        mat[i*SIZEB+j] = i * -1;
+                    else 
+                        if(i == 0) 
+                            mat[i*SIZEB+j] = j * -1;
+                        else
+                            mat[i*SIZEB+j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
                 }
-                //else mat[i*SIZEB+j] = Max(mat[i*SIZEB+j-1], mat[(i-1)*SIZEB+j-1], mat[(i-1)*SIZEB+j]) + 2;
             }
+            if (block_line <  N_BLOCKS - 1)
+                sem_post(&semaphore[block_line+1][block_column]);
         }
     }
     end_time = omp_get_wtime();
@@ -186,8 +200,12 @@ void CalculateSimilarity(int *mat, char *vetA, char *vetB)
         printf("Not Completed... %d\n", mat[MATRIX_SIZE-1]);
 
     // Destrua os semáforos quando não forem mais necessários
-    for (int i = 0; i < max_threads; i++) {
-        sem_destroy(&semaphore[i]);
+    for (int i = 0; i < N_BLOCKS; i++) 
+    {
+        for (int j = 0; j < N_BLOCKS; j++) 
+        {
+            sem_destroy(&semaphore[i][j]);
+        }
     }
 
     free(pos);
