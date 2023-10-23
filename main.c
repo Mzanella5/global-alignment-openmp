@@ -80,17 +80,17 @@ int Max(int val1, int val2, int val3)
     return bigger;
 }
 
-int FunctionSimilarity(int* mat, char a, char b, int i, int j, char *pos)
+int FunctionSimilarity(int **mat, char a, char b, int i, int j, char *pos)
 {
     int v1=INT_MIN,v2=INT_MIN,v3=INT_MIN;
     int result = 0, gap_seq_a = 0, gap_seq_b = 0;
 
     if(i-1 >= 0 && j-1 >= 0)
-        v1 = mat[(i-1)*SIZEB+j-1] + Similarity(a, b, NULL, NULL);
+        v1 = mat[i-1][j-1] + Similarity(a, b, NULL, NULL);
     if(i-1 >= 0)
-        v2 = mat[(i-1)*SIZEB+j] + Similarity(a, '-', &gap_seq_a, &gap_seq_b);
+        v2 = mat[i-1][j] + Similarity(a, '-', &gap_seq_a, &gap_seq_b);
     if(j-1 >= 0)
-        v3 = mat[i*SIZEB+j-1] + Similarity('-', b, &gap_seq_a, &gap_seq_b);
+        v3 = mat[i][j-1] + Similarity('-', b, &gap_seq_a, &gap_seq_b);
 
     result = v2;
     *pos = 'V';
@@ -108,30 +108,39 @@ int FunctionSimilarity(int* mat, char a, char b, int i, int j, char *pos)
     return result;
 }
 
-void PrintMatrix(int *mat)
+void PrintMatrix(int **mat)
 {
-    for (int i = 0; i < MATRIX_SIZE; i++) {
-        printf("%0*d | ", 3, mat[i]);
-        if((i+1)%SIZEB == 0) printf("\n");
+    printf("Print Matrix...\n");
+    for (int i = 0; i < SIZEA; i++)
+    {
+        for (int j = 0; j < SIZEB; j++)
+            printf("%0*d | ", 3, mat[i][j]);
+        printf("\n");
     }
     printf("\n");
 }
 
-int* InitializeMatrix()
+void FreeMatrix(int **matrix)
 {
-    int* mat = (int*) malloc(MATRIX_SIZE * sizeof(int));
-    for (int i = 0; i < MATRIX_SIZE; i++)
-        mat[i] = INT_MIN;
+    for (int i=0; i < SIZEA; i++)
+        free(matrix[i]);
+    free(matrix);
+}
+
+int** InitializeMatrix()
+{
+    int** mat = (int**) malloc(SIZEA * sizeof(int *));
+    for (int i = 0; i < SIZEA; i++)
+        mat[i] = (int*) malloc(SIZEB * sizeof(int));
     
     return mat;
 }
 
-void CalculateSimilarity(int *mat, char *vetA, char *vetB)
+void CalculateSimilarity(int **mat, char *vetA, char *vetB)
 {
-    int max_threads, block_line_size, block_column_size;
+    int block_line_size, block_column_size;
     double start_time, end_time, elapsed_time;
     char *pos = (char*) calloc(1, sizeof(char));
-    max_threads = omp_get_max_threads();
     sem_t semaphore[N_BLOCKS][N_BLOCKS];
 
     block_line_size = SIZEA / N_BLOCKS;
@@ -179,12 +188,12 @@ void CalculateSimilarity(int *mat, char *vetA, char *vetB)
                 {
                     // calcula
                     if(j == 0) 
-                        mat[i*SIZEB+j] = i * -1;
+                        mat[i][j] = i * -1;
                     else 
                         if(i == 0) 
-                            mat[i*SIZEB+j] = j * -1;
+                            mat[i][j] = j * -1;
                         else
-                            mat[i*SIZEB+j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
+                            mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
                 }
             }
             if (block_line <  N_BLOCKS - 1)
@@ -192,12 +201,11 @@ void CalculateSimilarity(int *mat, char *vetA, char *vetB)
         }
     }
     end_time = omp_get_wtime();
-
     elapsed_time = end_time - start_time;
     printf("omp_wtime elapsed time: %f seconds\n", elapsed_time);
 
-    if(mat[MATRIX_SIZE-1] == INT_MIN)
-        printf("Not Completed... %d\n", mat[MATRIX_SIZE-1]);
+    if(mat[SIZEA-1][SIZEB-1] == INT_MIN)
+        printf("Not Completed... %d\n", mat[SIZEA-1][SIZEB-1]);
 
     // Destrua os semáforos quando não forem mais necessários
     for (int i = 0; i < N_BLOCKS; i++) 
@@ -211,7 +219,7 @@ void CalculateSimilarity(int *mat, char *vetA, char *vetB)
     free(pos);
 }
 
-void MountSequence(int *mat, char *vetA, char *vetB, char **vetResA, char **vetResB)
+void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetResB)
 {
     int i,j,k,l;
     char *pos = (char*) calloc(1, sizeof(char));
@@ -451,7 +459,7 @@ void PrintResults(char *vetA, char *vetB, int size)
 int main(int argc, char *argv[7])
 {
     char *vetA, *vetB;
-    int *mat;
+    int **mat;
     int i=0,j=0, res;
     char *vetResA;
     char *vetResB;
@@ -506,6 +514,7 @@ int main(int argc, char *argv[7])
     mat = InitializeMatrix();
     printf("Calculate Matrix...\n");
     CalculateSimilarity(mat, vetA, vetB);
+
     if(VERBOSE)
         PrintMatrix(mat);
     
@@ -521,7 +530,7 @@ int main(int argc, char *argv[7])
     printf("Calculate Results...\n");
     PrintResults(vetResA, vetResB, SIZERES);
 
-    free(mat);
+    FreeMatrix(mat);
     free(vetA);
     free(vetB);
     free(vetResA);
