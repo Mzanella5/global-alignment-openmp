@@ -27,6 +27,12 @@ Point BIGGER_POINT;
 
 int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 {
+
+    // if(first == '-' || second == '-')
+    // {
+    //     return GAP;
+    // }
+
     if(gap_seq_a != NULL)
     {
         if(first == '-')
@@ -80,29 +86,33 @@ int Max(int val1, int val2, int val3)
     return bigger;
 }
 
-int FunctionSimilarity(int **mat, char a, char b, int i, int j, char *pos)
+int FunctionSimilarity(int **mat, char a, char b, int i, int j, char *pos, int *gap_seq_a, int *gap_seq_b)
 {
     int v1=INT_MIN,v2=INT_MIN,v3=INT_MIN;
-    int result = 0, gap_seq_a = 0, gap_seq_b = 0;
+    int result = 0;
 
     if(i-1 >= 0 && j-1 >= 0)
         v1 = mat[i-1][j-1] + Similarity(a, b, NULL, NULL);
     if(i-1 >= 0)
-        v2 = mat[i-1][j] + Similarity(a, '-', &gap_seq_a, &gap_seq_b);
+        v2 = mat[i-1][j] + Similarity(a, '-', gap_seq_a, gap_seq_b);
     if(j-1 >= 0)
-        v3 = mat[i][j-1] + Similarity('-', b, &gap_seq_a, &gap_seq_b);
+        v3 = mat[i][j-1] + Similarity('-', b, gap_seq_a, gap_seq_b);
 
-    result = v2;
-    *pos = 'V';
-    if(v1 > result)
+    result = v1;
+    *pos = 'D';
+    if(v2 > result)
     {
-        result = v1;
-        *pos = 'D';
+        result = v2;
+        *pos = 'V';
+        // if(gap_seq_b != NULL)
+        //     *gap_seq_b = *gap_seq_b + 1;
     }
     if(v3 > result)
     {
         result = v3;
         *pos = 'H';
+        // if(gap_seq_a != NULL)
+        //     *gap_seq_a = *gap_seq_a + 1;
     }
 
     return result;
@@ -165,6 +175,7 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
     #pragma omp parallel for
     for (int block_line = 0; block_line < N_BLOCKS; block_line++) 
     {
+        int gap_seq_a=1, gap_seq_b=1;
         for (int block_column = 0; block_column < N_BLOCKS; block_column++)
         {
             // calcula posicao inicial e final de cada bloco
@@ -193,7 +204,7 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
                         if(i == 0) 
                             mat[i][j] = j * -1;
                         else
-                            mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
+                            mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos, &gap_seq_a, &gap_seq_b);
                 }
             }
             if (block_line <  N_BLOCKS - 1)
@@ -219,7 +230,7 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
     free(pos);
 }
 
-void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetResB)
+int MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetResB)
 {
     int i,j,k,l;
     char *pos = (char*) calloc(1, sizeof(char));
@@ -243,7 +254,7 @@ void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vet
     {
         k--;
         l--;
-        FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos);
+        FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos, NULL, NULL);
         if(i==0 && j==0) break;
 
         if(VERBOSE)
@@ -262,7 +273,7 @@ void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vet
             *(*(vetResB) + l) = '-';
             i--;
         }
-        else
+        else if(*pos == 'H')
         {
             *(*(vetResA) + k)  = '-';
             *(*(vetResB) + l)= vetB[j];
@@ -272,7 +283,7 @@ void MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vet
 
     free(pos);
     printf("\n");
-    return;
+    return 1;
 }
 
 void PrintVector(char *vet, int size)
@@ -311,7 +322,7 @@ int ReadFastaData(char **vet, char *path)
     
     } while(ch != EOF);
 
-    printf("SIZE: %d\n", size);
+    printf("SIZE: %d\n", size-1);
 
     *vet = (char*) calloc(size, sizeof(char));
 
@@ -421,10 +432,13 @@ void ReadData(char **vetA, char **vetB, char *path)
     fclose(file);
 }
 
-void PrintResults(char *vetA, char *vetB, int size)
+char* PrintResults(char *vetA, char *vetB, int size, int **mat)
 {
     int i, hits=0, misses=0, gaps=0;
-    char a, b;
+    char a, b, *ret;
+
+    ret = (char*) calloc(100, sizeof(char));
+
     for(i=0; i < size; i++)
     {
         a = vetA[i];
@@ -452,8 +466,86 @@ void PrintResults(char *vetA, char *vetB, int size)
 
     }
 
+    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d\n", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, size);
+
     printf("======Results======\n");
-    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d \n", hits, misses, gaps, size);
+    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, size, mat[SIZEA-1][SIZEB-1]);
+    return ret;
+}
+
+int WriteFile(char *vetA, char *vetB, int size, char *metrics)
+{
+    time_t t = time(NULL);
+    struct tm tm = *localtime(&t);
+    FILE *file;
+    int lineSize = 100, l=0;
+    char datetime[50], seqA[lineSize+3], seqB[lineSize+3], identities[lineSize+3], a,b;
+
+    sprintf(datetime, "out/%02d%02d%02d%02d%02d%02d.txt",
+            tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+            tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+    file = fopen(datetime, "w");
+    if (file == NULL) {
+        printf("\nErro ao criar o arquivo.\n");
+        return 0;
+    }
+
+    fprintf(file, "%s\n", metrics);
+
+    for (int i=0; i < size; i++)
+    {
+        if (l < lineSize)
+        {
+            a = vetA[i];
+            b = vetB[i];
+            // if (l==0)
+            // {
+            //     sprintf(seqA[l], "%d", i);
+            //     sprintf(seqB[l], "%d", i);
+            //     sprintf(identities[l], " ");
+            //     l++;
+            // }
+
+            if(a >= 'A' && a <= 'Z' && b >= 'A' && b <= 'Z' || a == '-' || b == '-')
+            {
+                if(a == b)
+                {
+                    identities[l] = '|';
+                }
+                else
+                if(a == '-' || b == '-')
+                {
+                    identities[l] = '&';
+                }
+                else identities[l] = '*';
+
+                seqA[l] = a;
+                seqB[l] = b;
+                l++;
+            }
+        }
+        else
+        {
+            seqA[l] = '\0';
+            seqB[l] = '\0';
+            identities[l] = '\0';
+            fprintf(file, "%s\n", seqA);
+            fprintf(file, "%s\n", identities);
+            fprintf(file, "%s\n\n", seqB);
+            l = 0;
+        }
+    }
+
+    seqA[l] = '\0';
+    seqB[l] = '\0';
+    identities[l] = '\0';
+    fprintf(file, "%s\n", seqA);
+    fprintf(file, "%s\n", identities);
+    fprintf(file, "%s\n", seqB);    
+
+    fclose(file);
+    return 1;
 }
 
 int main(int argc, char *argv[7])
@@ -528,7 +620,10 @@ int main(int argc, char *argv[7])
     }
 
     printf("Calculate Results...\n");
-    PrintResults(vetResA, vetResB, SIZERES);
+    char *result = PrintResults(vetResA, vetResB, SIZERES, mat);
+
+    printf("Writing file...\n");
+    WriteFile(vetResA, vetResB, SIZERES, result);
 
     FreeMatrix(mat);
     free(vetA);
