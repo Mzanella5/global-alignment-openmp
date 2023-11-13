@@ -120,7 +120,7 @@ int FunctionSimilarity(int **mat, char a, char b, int i, int j, char *pos, int *
 
 void PrintMatrix(int **mat)
 {
-    printf("Print Matrix...\n");
+    printf("<Print Matrix>\n");
     for (int i = 0; i < SIZEA; i++)
     {
         for (int j = 0; j < SIZEB; j++)
@@ -146,7 +146,7 @@ int** InitializeMatrix()
     return mat;
 }
 
-void CalculateSimilarity(int **mat, char *vetA, char *vetB)
+double CalculateSimilarity(int **mat, char *vetA, char *vetB)
 {
     int block_line_size, block_column_size;
     double start_time, end_time, elapsed_time;
@@ -168,7 +168,7 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
         }
     }
 
-    printf("block_line_size: %d\nblock_column_size: %d\n", block_line_size, block_column_size);
+    printf("block line size: %d block column size: %d\n", block_line_size, block_column_size);
 
     start_time = omp_get_wtime();
     // Iniciar uma região paralela
@@ -213,7 +213,7 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
     }
     end_time = omp_get_wtime();
     elapsed_time = end_time - start_time;
-    printf("omp_wtime elapsed time: %f seconds\n", elapsed_time);
+    printf("Alignment time: %f seconds\n", elapsed_time);
 
     if(mat[SIZEA-1][SIZEB-1] == INT_MIN)
         printf("Not Completed... %d\n", mat[SIZEA-1][SIZEB-1]);
@@ -228,6 +228,7 @@ void CalculateSimilarity(int **mat, char *vetA, char *vetB)
     }
 
     free(pos);
+    return elapsed_time;
 }
 
 int MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetResB)
@@ -282,30 +283,57 @@ int MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetR
     } while (i >= 0 && j >= 0);
 
     free(pos);
-    printf("\n");
+    if(VERBOSE)
+        printf("\n");
     return 1;
 }
 
 void PrintVector(char *vet, int size)
 {
-    int i;
-    for (i=0; i < size; i++)
-        printf("%c ", vet[i]);
+    for (int i=0; i < size; i++)
+        if (vet[i] >= 'A' && vet[i] <= 'Z' || vet[i] == '-')
+            printf("%c ", vet[i]);
+        
     printf("\n");
 }
 
-int ReadFastaData(char **vet, char *path)
+int CountFinalSequence(char *vet, int size)
+{
+    int i, count=0;
+    for (i=0; i < size; i++)
+        if (vet[i] >= 'A' && vet[i] <= 'Z' || vet[i] == '-')
+            count++;
+        
+    return count;
+}
+
+read_data_result ReadFastaData(char **vet, char *path)
 {
     FILE* file;
     char ch;
-    int i = 1, size = 1, skipLine = 0;
+    int i, size = 1, skipLine = 0;
+    read_data_result result;
 
     file = fopen(path, "r");
     if(file == NULL)
     {
         printf("\nCan't read the file!\n");
-        return size;
+        return result;
     }
+
+    for (i=0; i < 99; i++)
+    {
+        ch = fgetc(file);
+        if (ch == EOF || ch == '\n')
+            break;
+        else
+            result.sequence_name[i] = ch;
+    }
+
+    result.sequence_name[i+1] = '\0';
+    printf("%s\n", result.sequence_name);
+
+    fseek(file, 0, SEEK_SET);
 
     do {
         ch = fgetc(file);
@@ -322,12 +350,11 @@ int ReadFastaData(char **vet, char *path)
     
     } while(ch != EOF);
 
-    printf("SIZE: %d\n", size-1);
-
     *vet = (char*) calloc(size, sizeof(char));
 
-    fseek( file, 0, SEEK_SET );
+    fseek(file, 0, SEEK_SET);
     skipLine = 0;
+    i=1;
     do {
         ch = fgetc(file);
 
@@ -348,7 +375,8 @@ int ReadFastaData(char **vet, char *path)
     } while (ch != EOF);
     
     fclose(file);
-    return size;
+    result.size = size;
+    return result;
 }
 
 void ReadData(char **vetA, char **vetB, char *path)
@@ -432,7 +460,7 @@ void ReadData(char **vetA, char **vetB, char *path)
     fclose(file);
 }
 
-char* PrintResults(char *vetA, char *vetB, int size, int **mat)
+char* PrintResults(char *vetA, char *vetB, int size, int size_sequence, int **mat)
 {
     int i, hits=0, misses=0, gaps=0;
     char a, b, *ret;
@@ -463,17 +491,17 @@ char* PrintResults(char *vetA, char *vetB, int size, int **mat)
 
         if(b == '-')
             gaps++;
-
     }
 
-    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d\n", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, size);
+    sprintf(ret, "Score: %d Identities: %d Gaps: %d Misses: %d AlignmentSize: %d\n", mat[SIZEA-1][SIZEB-1], hits, gaps, misses, size_sequence);
 
-    printf("======Results======\n");
-    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, size, mat[SIZEA-1][SIZEB-1]);
+    printf("==========Results==========\n");
+    printf("Hits: %d \nMisses: %d \nGaps: %d \nAlignmentSize: %d\nScore: %d\n", hits, misses, gaps, size_sequence, mat[SIZEA-1][SIZEB-1]);
+    printf("===========================\n");
     return ret;
 }
 
-int WriteFile(char *vetA, char *vetB, int size, char *metrics)
+int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_time, read_data_result result_a, read_data_result result_b)
 {
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
@@ -491,7 +519,10 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics)
         return 0;
     }
 
-    fprintf(file, "%s\n", metrics);
+    fprintf(file, "Reference sequence: %s", result_a.sequence_name);
+    fprintf(file, "Subject sequence: %s", result_b.sequence_name);
+    fprintf(file, "%s", metrics);
+    fprintf(file, "Alignment time: %f seconds\n\n", elapsed_time);
 
     for (int i=0; i < size; i++)
     {
@@ -499,13 +530,6 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics)
         {
             a = vetA[i];
             b = vetB[i];
-            // if (l==0)
-            // {
-            //     sprintf(seqA[l], "%d", i);
-            //     sprintf(seqB[l], "%d", i);
-            //     sprintf(identities[l], " ");
-            //     l++;
-            // }
 
             if(a >= 'A' && a <= 'Z' && b >= 'A' && b <= 'Z' || a == '-' || b == '-')
             {
@@ -552,10 +576,12 @@ int main(int argc, char *argv[7])
 {
     char *vetA, *vetB;
     int **mat;
-    int i=0,j=0, res;
+    int i=0,j=0, res, alignment_size, num_options = 0;
     char *vetResA;
     char *vetResB;
-    int num_options = 0;
+    double elapsed_time;
+    read_data_result result_a;
+    read_data_result result_b;
 
     if(argv[1] == NULL || argv[2] == NULL)
     {
@@ -578,52 +604,47 @@ int main(int argc, char *argv[7])
     VERBOSE = options[4].value;
     N_BLOCKS = options[5].value;
 
-    if(VERBOSE)
-        for(i=0; i < num_options; i++)
-        {
-            printf("%s = %d\n", options[i].option, options[i].value);
-        }
+    printf("<Reading Files>\n");
+    printf("Reference Sequence: ");
+    result_a = ReadFastaData(&vetA, argv[1]);
+    printf("Subject Sequence: ");
+    result_b = ReadFastaData(&vetB, argv[2]);
+    SIZEA = result_a.size;
+    SIZEB = result_b.size;
 
-    printf("Reading Files...\n");
-    SIZEA = ReadFastaData(&vetA, argv[1]);
-    SIZEB = ReadFastaData(&vetB, argv[2]);
+    printf("SIZE A: %d SIZE B: %d\n", SIZEA-1, SIZEB-1);
+    
     SIZERES = SIZEA + SIZEB;
     MATRIX_SIZE = SIZEA * SIZEB;
 
     vetResA = (char*) calloc(SIZERES, sizeof(char));
     vetResB = (char*) calloc(SIZERES, sizeof(char));
 
-    if(VERBOSE)
-    {
-        PrintVector(vetA, SIZEA);
-        PrintVector(vetB, SIZEB);
-
-        PrintVector(vetResA, SIZERES);
-        PrintVector(vetResB, SIZERES);
-    }
-
-    printf("Initialize Matrix...\n");
+    printf("<Initialize Matrix>\n");
     mat = InitializeMatrix();
-    printf("Calculate Matrix...\n");
-    CalculateSimilarity(mat, vetA, vetB);
+    printf("<Calculate Matrix>\n");
+    elapsed_time = CalculateSimilarity(mat, vetA, vetB);
 
     if(VERBOSE)
         PrintMatrix(mat);
     
-    printf("Mount Sequence...\n");
+    printf("<Mount Sequence>\n");
     MountSequence(mat, vetA, vetB, &vetResA, &vetResB);
 
     if(VERBOSE)
     {
+        printf("Sequence A: ");
         PrintVector(vetResA, SIZERES);
+        printf("Sequence B: ");
         PrintVector(vetResB, SIZERES);
     }
 
-    printf("Calculate Results...\n");
-    char *result = PrintResults(vetResA, vetResB, SIZERES, mat);
+    printf("<Calculate Results>\n");
+    alignment_size = CountFinalSequence(vetResA, SIZERES);
+    char *result = PrintResults(vetResA, vetResB, SIZERES, alignment_size, mat);
 
     printf("Writing file...\n");
-    WriteFile(vetResA, vetResB, SIZERES, result);
+    WriteFile(vetResA, vetResB, SIZERES, result, elapsed_time, result_a, result_b);
 
     FreeMatrix(mat);
     free(vetA);
