@@ -7,6 +7,7 @@
 #include <semaphore.h>
 #include <omp.h>
 #include <time.h>
+#include <sys/stat.h>
 
 #define getName(var)  #var
 int SIZEA, SIZEB, SIZERES, MATRIX_SIZE, N_BLOCKS;
@@ -514,6 +515,9 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
     FILE *file;
     int lineSize = 100, l=0;
     char datetime[50], seqA[lineSize+3], seqB[lineSize+3], identities[lineSize+3], a,b;
+    const char* nome_da_pasta = "out";
+
+    mkdir(nome_da_pasta, 0777);
 
     sprintf(datetime, "out/%02d%02d%02d%02d%02d%02d.txt",
             tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
@@ -663,7 +667,8 @@ int main(int argc, char *argv[7])
     alignment_size = CountFinalSequence(vetResA, SIZERES);
     char *result = PrintResults(vetResA, vetResB, SIZERES, alignment_size, mat);
 
-    printf("Writing file...\n");
+    printf("<Writing file>\n");
+    printf("<Done>\n");
     WriteFile(vetResA, vetResB, SIZERES, result, elapsed_time, result_a, result_b);
 
     FreeMatrix(mat);
