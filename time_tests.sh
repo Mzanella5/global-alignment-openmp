@@ -8,7 +8,6 @@ sudo gcc -fopenmp main.c options.h options.c -o main
 
 #30k
 #================================================================================================================
-
 for ((j = 1; j <= cores; j++)); do
     sample="./main samples/30k1.fna samples/30k2.fna --match 2 --mismatch -3 --gap -5 --gap_seq -2 --blocks $j"
     for ((i = 1; i <= times; i++)); do
@@ -20,9 +19,8 @@ for ((j = 1; j <= cores; j++)); do
     done
 done
 
-# #80k
-# #================================================================================================================
-
+#80k
+#================================================================================================================
 for ((j = 1; j <= cores; j++)); do
     sample="./main samples/80k1.fna samples/80k2.fna --match 2 --mismatch -3 --gap -5 --gap_seq -2 --blocks $j"
     for ((i = 1; i <= times; i++)); do
@@ -34,9 +32,8 @@ for ((j = 1; j <= cores; j++)); do
     done
 done
 
-# #100k
-# #================================================================================================================
-
+#100k
+#================================================================================================================
 for ((j = 1; j <= cores; j++)); do
     sample="./main samples/100k1.fna samples/100k2.fna --match 2 --mismatch -3 --gap -5 --gap_seq -2 --blocks $j"
     for ((i = 1; i <= times; i++)); do
@@ -48,9 +45,8 @@ for ((j = 1; j <= cores; j++)); do
     done
 done
 
-# #150k
-# #================================================================================================================
-
+#150k
+#================================================================================================================
 for ((j = 1; j <= cores; j++)); do
     sample="./main samples/150k1.fna samples/150k2.fna --match 2 --mismatch -3 --gap -5 --gap_seq -2 --blocks $j"
     for ((i = 1; i <= times; i++)); do
@@ -61,6 +57,5 @@ for ((j = 1; j <= cores; j++)); do
         echo "" >> $saida
     done
 done
-
 
 echo "Execuções concluídas. Resultados salvos em $saida"
