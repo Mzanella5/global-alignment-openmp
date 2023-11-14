@@ -15,6 +15,7 @@ int MATCH = 2;
 int MISMATCH = -1;
 int GAP = -1;
 int GAP_SEQ = -1;
+int NO_AFFINE = 0;
 
 typedef struct
 {
@@ -27,51 +28,56 @@ Point BIGGER_POINT;
 
 int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 {
-
-    // if(first == '-' || second == '-')
-    // {
-    //     return GAP;
-    // }
-
-    if(gap_seq_a != NULL)
+    if(NO_AFFINE == 1)
     {
-        if(first == '-')
+        // Simple gap penalty
+        if(first == '-' || second == '-')
         {
-            if(*gap_seq_a)
-            {
-                return GAP_SEQ;
-            }
-            *gap_seq_a = *gap_seq_a + 1;
-
-            return GAP + *gap_seq_a * GAP_SEQ;
-        }
-        else
-        {
-            *gap_seq_a = 0;
+            return GAP;
         }
     }
-
-    if(gap_seq_b != NULL)
+    else // Aplies affine gap
     {
-        if(second == '-')
+        if(gap_seq_a != NULL)
         {
-            if(*gap_seq_b)
+            if(first == '-')
             {
-                return GAP_SEQ;
-            }
-            *gap_seq_b = *gap_seq_b + 1;
+                if(*gap_seq_a)
+                {
+                    return GAP_SEQ;
+                }
+                *gap_seq_a = *gap_seq_a + 1;
 
-            return GAP + *gap_seq_b * GAP_SEQ;
+                return GAP + *gap_seq_a * GAP_SEQ;
+            }
+            else
+            {
+                *gap_seq_a = 0;
+            }
         }
-        else
+
+        if(gap_seq_b != NULL)
         {
-            *gap_seq_b = 0;
+            if(second == '-')
+            {
+                if(*gap_seq_b)
+                {
+                    return GAP_SEQ;
+                }
+                *gap_seq_b = *gap_seq_b + 1;
+
+                return GAP + *gap_seq_b * GAP_SEQ;
+            }
+            else
+            {
+                *gap_seq_b = 0;
+            }
         }
     }
-
 
     if(first == second)
         return MATCH;
+    
     return MISMATCH;
 }
 
@@ -572,6 +578,19 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
     return 1;
 }
 
+void PrintHelp(char* prog_name)
+{
+    printf("\n\nUse: %s [File Path 1] [File Path 2]\n", prog_name);
+    printf("Options:\n");
+    printf("--match | INT\n");
+    printf("--mismatch | INT\n");
+    printf("--gap | INT\n");
+    printf("--gap_seq | INT\n");
+    printf("-help\n");
+    printf("-verbose\n");
+    printf("-no_affine\n\n");
+}
+
 int main(int argc, char *argv[7])
 {
     char *vetA, *vetB;
@@ -585,13 +604,7 @@ int main(int argc, char *argv[7])
 
     if(argv[1] == NULL || argv[2] == NULL)
     {
-        printf("\n\nUse: %s [File Path 1] [File Path 2]\n", argv[0]);
-        printf("Options:\n");
-        printf("--match | INT\n");
-        printf("--mismatch | INT\n");
-        printf("--gap | INT\n");
-        printf("--gap_seq | INT\n");
-        printf("-verbose | 1=TRUE 0=FALSE\n\n");
+        PrintHelp(argv[0]);
         return 0;
     }
 
@@ -603,6 +616,13 @@ int main(int argc, char *argv[7])
     GAP_SEQ = options[3].value;
     VERBOSE = options[4].value;
     N_BLOCKS = options[5].value;
+    NO_AFFINE = options[6].value;
+
+    if(options[7].value)
+    {
+        PrintHelp(argv[0]);
+        return 0;
+    }
 
     printf("<Reading Files>\n");
     printf("Reference Sequence: ");
