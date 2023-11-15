@@ -1,4 +1,4 @@
-#Auto
+#!/bin/bash
 
 cores=12
 times=3
