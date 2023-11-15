@@ -4,11 +4,12 @@ cores=12
 times=3
 saida="saida.txt"
 
-sudo gcc -fopenmp main.c options.h options.c -o main
+mkdir out
+gcc -fopenmp main.c options.h options.c -o main
 
 #30k
 #================================================================================================================
-for ((j = 1; j <= cores; j++)); do
+for ((j = 1; j <= $cores; j++)); do
     sample="./main samples/30k1.fna samples/30k2.fna --match 2 --mismatch -3 --gap -5 --gap_seq -2 --blocks $j"
     for ((i = 1; i <= times; i++)); do
         message="Threads: $j Tamanho: 30k Execução $i/3"
@@ -45,12 +46,12 @@ for ((j = 1; j <= cores; j++)); do
     done
 done
 
-#150k
+#130k
 #================================================================================================================
 for ((j = 1; j <= cores; j++)); do
-    sample="./main samples/150k1.fna samples/150k2.fna --match 2 --mismatch -3 --gap -5 --gap_seq -2 --blocks $j"
+    sample="./main samples/130k1.fna samples/130k2.fna --match 2 --mismatch -3 --gap -5 --gap_seq -2 --blocks $j"
     for ((i = 1; i <= times; i++)); do
-        message="Threads: $j Tamanho: 150k Execução $i/3"
+        message="Threads: $j Tamanho: 130k Execução $i/3"
         echo $message
         echo $message >> $saida
         echo $sample >> $saida && $sample >> $saida 2>&1
