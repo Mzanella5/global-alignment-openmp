@@ -18,7 +18,7 @@ int count_chars(char *s, char c) {
 Option* process_options(int argc, char *argv[], int *num_options) {
     int i, j;
     bool verbose = false, know_option = false;
-    *num_options = 8;
+    *num_options = 9;
 
     Option *options = (Option*) malloc(*num_options * sizeof(Option));
 
@@ -45,6 +45,9 @@ Option* process_options(int argc, char *argv[], int *num_options) {
 
     strcpy(options[7].option, "-help");
     options[7].value = 0;
+
+    strcpy(options[8].option, "--threads");
+    options[8].value = 0;
 
     for(i = 3; i < argc; i++) {
         know_option = false;

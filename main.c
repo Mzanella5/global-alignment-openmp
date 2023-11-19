@@ -16,7 +16,7 @@ int MISMATCH = -1;
 int GAP = -1;
 int GAP_SEQ = -1;
 int NO_AFFINE = 0;
-
+int N_THREADS;
 typedef struct
 {
     int value;
@@ -178,6 +178,7 @@ double CalculateSimilarity(int **mat, char *vetA, char *vetB)
 
     start_time = omp_get_wtime();
     // Iniciar uma região paralela
+    omp_set_num_threads(N_THREADS);
     #pragma omp parallel for
     for (int block_line = 0; block_line < N_BLOCKS; block_line++) 
     {
@@ -619,6 +620,10 @@ int main(int argc, char *argv[7])
     VERBOSE = options[4].value;
     N_BLOCKS = options[5].value;
     NO_AFFINE = options[6].value;
+    N_THREADS = options[8].value;
+
+    if(N_THREADS == 0)
+        N_THREADS = omp_get_max_threads();
 
     if(options[7].value)
     {
