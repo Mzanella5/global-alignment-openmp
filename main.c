@@ -512,7 +512,7 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
     FILE *file;
-    int lineSize = 100, l=0;
+    int lineSize = 100, l=0, seq_poss = 0;
     char datetime[50], seqA[lineSize+3], seqB[lineSize+3], identities[lineSize+3], a,b;
 
     sprintf(datetime, "out/%02d%02d%02d%02d%02d%02d.txt",
@@ -553,6 +553,7 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
                 seqA[l] = a;
                 seqB[l] = b;
                 l++;
+                seq_poss++;
             }
         }
         else
@@ -560,6 +561,7 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
             seqA[l] = '\0';
             seqB[l] = '\0';
             identities[l] = '\0';
+            fprintf(file, "%d-%d\n", seq_poss-lineSize, seq_poss -1);
             fprintf(file, "%s\n", seqA);
             fprintf(file, "%s\n", identities);
             fprintf(file, "%s\n\n", seqB);
