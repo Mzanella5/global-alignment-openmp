@@ -2,7 +2,7 @@
 
 cores=24
 times=3
-saida="saida.txt"
+saida="results/saida.txt"
 
 # mkdir out
 # gcc -fopenmp main.c options.h options.c -o main
