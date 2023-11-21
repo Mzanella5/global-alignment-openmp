@@ -513,7 +513,7 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
     time_t t = time(NULL);
     struct tm tm = *localtime(&t);
     FILE *file;
-    int lineSize = 100, l=0, seq_poss = 0;
+    int lineSize = 60, l=0, seq_poss = 1;
     char datetime[50], seqA[lineSize+3], seqB[lineSize+3], identities[lineSize+3], a,b;
 
     sprintf(datetime, "out/%02d%02d%02d%02d%02d%02d.txt",
@@ -533,6 +533,17 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
 
     for (int i=0; i < size; i++)
     {
+        if (l >= lineSize)
+        {
+            seqA[l] = '\0';
+            seqB[l] = '\0';
+            identities[l] = '\0';
+            fprintf(file, "%d-%d\n", seq_poss-lineSize, seq_poss -1);
+            fprintf(file, "%s\n", seqA);
+            fprintf(file, "%s\n", identities);
+            fprintf(file, "%s\n\n", seqB);
+            l = 0;
+        }
         if (l < lineSize)
         {
             a = vetA[i];
@@ -557,17 +568,6 @@ int WriteFile(char *vetA, char *vetB, int size, char *metrics, double elapsed_ti
                 seq_poss++;
             }
         }
-        else
-        {
-            seqA[l] = '\0';
-            seqB[l] = '\0';
-            identities[l] = '\0';
-            fprintf(file, "%d-%d\n", seq_poss-lineSize, seq_poss -1);
-            fprintf(file, "%s\n", seqA);
-            fprintf(file, "%s\n", identities);
-            fprintf(file, "%s\n\n", seqB);
-            l = 0;
-        }
     }
 
     seqA[l] = '\0';
@@ -589,6 +589,8 @@ void PrintHelp(char* prog_name)
     printf("--mismatch | INT\n");
     printf("--gap | INT\n");
     printf("--gap_seq | INT\n");
+    printf("--blocks | INT\n");
+    printf("--threads | INT\n");
     printf("-help\n");
     printf("-verbose\n");
     printf("-no_affine\n\n");
@@ -639,7 +641,7 @@ int main(int argc, char *argv[7])
     SIZEA = result_a.size;
     SIZEB = result_b.size;
 
-    printf("SIZE A: %d SIZE B: %d\n", SIZEA-1, SIZEB-1);
+    printf("Size A: %d Size B: %d\n", SIZEA-1, SIZEB-1);
     
     SIZERES = SIZEA + SIZEB;
     MATRIX_SIZE = SIZEA * SIZEB;
@@ -671,8 +673,8 @@ int main(int argc, char *argv[7])
     char *result = PrintResults(vetResA, vetResB, SIZERES, alignment_size, mat);
 
     printf("<Writing file>\n");
-    printf("<Done>\n");
     WriteFile(vetResA, vetResB, SIZERES, result, elapsed_time, result_a, result_b);
+    printf("<Done>\n");
 
     FreeMatrix(mat);
     free(vetA);
