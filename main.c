@@ -98,27 +98,27 @@ int FunctionSimilarity(int **mat, char a, char b, int i, int j, char *pos, int *
     int result = 0;
 
     if(i-1 >= 0 && j-1 >= 0)
-        v1 = mat[i-1][j-1] + Similarity(a, b, NULL, NULL);
+    v1 = mat[i-1][j-1] + Similarity(a, b, NULL, NULL);
     if(i-1 >= 0)
-        v2 = mat[i-1][j] + Similarity(a, '-', gap_seq_a, gap_seq_b);
+    v2 = mat[i-1][j] + Similarity(a, '-', gap_seq_a, gap_seq_b);
     if(j-1 >= 0)
-        v3 = mat[i][j-1] + Similarity('-', b, gap_seq_a, gap_seq_b);
+    v3 = mat[i][j-1] + Similarity('-', b, gap_seq_a, gap_seq_b);
 
     result = v1;
     *pos = 'D';
     if(v2 > result)
     {
         result = v2;
-        *pos = 'V';
-        // if(gap_seq_b != NULL)
-        //     *gap_seq_b = *gap_seq_b + 1;
+    *pos = 'V';
+    // if(gap_seq_b != NULL)
+    //     *gap_seq_b = *gap_seq_b + 1;
     }
     if(v3 > result)
     {
         result = v3;
-        *pos = 'H';
-        // if(gap_seq_a != NULL)
-        //     *gap_seq_a = *gap_seq_a + 1;
+    *pos = 'H';
+    // if(gap_seq_a != NULL)
+    //     *gap_seq_a = *gap_seq_a + 1;
     }
 
     return result;
@@ -156,7 +156,6 @@ double CalculateSimilarity(int **mat, char *vetA, char *vetB)
 {
     int block_line_size, block_column_size;
     double start_time, end_time, elapsed_time;
-    char *pos = (char*) calloc(1, sizeof(char));
     sem_t semaphore[N_BLOCKS][N_BLOCKS];
 
     block_line_size = SIZEA / N_BLOCKS;
@@ -175,7 +174,7 @@ double CalculateSimilarity(int **mat, char *vetA, char *vetB)
     }
 
     printf("block line size: %d block column size: %d\n", block_line_size, block_column_size);
-
+    
     start_time = omp_get_wtime();
     // Iniciar uma região paralela
     omp_set_num_threads(N_THREADS);
@@ -183,6 +182,7 @@ double CalculateSimilarity(int **mat, char *vetA, char *vetB)
     for (int block_line = 0; block_line < N_BLOCKS; block_line++) 
     {
         int gap_seq_a=1, gap_seq_b=1;
+        char pos;
         for (int block_column = 0; block_column < N_BLOCKS; block_column++)
         {
             // calcula posicao inicial e final de cada bloco
@@ -211,8 +211,8 @@ double CalculateSimilarity(int **mat, char *vetA, char *vetB)
                         if(i == 0) 
                             mat[i][j] = j * -1;
                         else
-                            mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, pos, &gap_seq_a, &gap_seq_b);
-                }
+                            mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, &pos, &gap_seq_a, &gap_seq_b);
+                }          
             }
             if (block_line <  N_BLOCKS - 1)
                 sem_post(&semaphore[block_line+1][block_column]);
@@ -234,19 +234,18 @@ double CalculateSimilarity(int **mat, char *vetA, char *vetB)
         }
     }
 
-    free(pos);
     return elapsed_time;
 }
 
-int MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetResB)
+int MountSequence(int **mat, char *vetA, char *vetB, char *vetResA, char *vetResB)
 {
     int i,j,k,l;
     char *pos = (char*) calloc(1, sizeof(char));
 
     for (i=0; i < SIZERES; i++)
     {
-        *(*(vetResA) + i) = ' ';
-        *(*(vetResB) + i) = ' ';
+        vetResA[i] = ' ';
+        vetResB[i] = ' ';
     }
 
     i = SIZEA-1;
@@ -270,21 +269,21 @@ int MountSequence(int **mat, char *vetA, char *vetB, char **vetResA, char **vetR
 
         if(*pos == 'D')
         {
-            *(*(vetResA) + k) = vetA[i];
-            *(*(vetResB) + l) = vetB[j];
+            vetResA[k] = vetA[i];
+            vetResA[l] = vetB[j];
             i--;
             j--;
         }
         else if(*pos == 'V')
         {
-            *(*(vetResA) + k)  = vetA[i];
-            *(*(vetResB) + l) = '-';
+            vetResA[k] = vetA[i];
+            vetResA[l] = '-';
             i--;
         }
         else if(*pos == 'H')
         {
-            *(*(vetResA) + k)  = '-';
-            *(*(vetResB) + l)= vetB[j];
+            vetResA[k] = '-';
+            vetResA[l] = vetB[j];
             j--;
         }
     } while (i >= 0 && j >= 0);
@@ -314,7 +313,7 @@ int CountFinalSequence(char *vet, int size)
     return count;
 }
 
-read_data_result ReadFastaData(char **vet, char *path)
+read_data_result ReadFastaData(char *vet, char *path)
 {
     FILE* file;
     char ch;
@@ -357,7 +356,7 @@ read_data_result ReadFastaData(char **vet, char *path)
     
     } while(ch != EOF);
 
-    *vet = (char*) calloc(size, sizeof(char));
+    vet = (char*) calloc(size, sizeof(char));
 
     fseek(file, 0, SEEK_SET);
     skipLine = 0;
@@ -376,13 +375,13 @@ read_data_result ReadFastaData(char **vet, char *path)
 
         if(ch >= 'A' && ch <= 'Z' && skipLine == 0)
         {
-            *((*vet) + i) = ch;
+            vet[i] = ch;
             i++;
         }
     } while (ch != EOF);
     
     fclose(file);
-    result.size = size;
+        result.size = size;
     return result;
 }
 
@@ -627,6 +626,9 @@ int main(int argc, char *argv[7])
     if(N_THREADS == 0)
         N_THREADS = omp_get_max_threads();
 
+    for (int u=0; u<9;u++)
+         printf("%s %d\n", options[u].option, options[u].value);
+
     if(options[7].value)
     {
         PrintHelp(argv[0]);
@@ -635,9 +637,9 @@ int main(int argc, char *argv[7])
 
     printf("<Reading Files>\n");
     printf("Reference Sequence: ");
-    result_a = ReadFastaData(&vetA, argv[1]);
+    result_a = ReadFastaData(vetA, argv[1]);
     printf("Subject Sequence: ");
-    result_b = ReadFastaData(&vetB, argv[2]);
+    result_b = ReadFastaData(vetB, argv[2]);
     SIZEA = result_a.size;
     SIZEB = result_b.size;
 
@@ -658,7 +660,7 @@ int main(int argc, char *argv[7])
         PrintMatrix(mat);
     
     printf("<Mount Sequence>\n");
-    MountSequence(mat, vetA, vetB, &vetResA, &vetResB);
+    MountSequence(mat, vetA, vetB, vetResA, vetResB);
 
     if(VERBOSE)
     {
