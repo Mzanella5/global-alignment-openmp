@@ -21,7 +21,7 @@ int N_THREADS;
 
 int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 {
-    int gap_seq_cost;
+    int gap_seq_count;
     if(NO_AFFINE == 1 || gap_seq_a == NULL || gap_seq_b == NULL)
     {
         // Simple gap penalty
@@ -35,9 +35,8 @@ int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
         if(first == '-')
         {
             *gap_seq_a = *gap_seq_a + 1;
-            gap_seq_cost = *gap_seq_a -1;
-            return GAP + GAP_SEQ * gap_seq_cost;
-            //return GAP + *gap_seq_a * GAP_SEQ;
+            gap_seq_count = *gap_seq_a -1;
+            return GAP + GAP_SEQ * gap_seq_count;
         }
         else
         {
@@ -47,9 +46,8 @@ int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
         if(second == '-')
         {
             *gap_seq_b = *gap_seq_b + 1;
-            gap_seq_cost = *gap_seq_b -1;
-            return GAP + GAP_SEQ * gap_seq_cost;
-            //return GAP + *gap_seq_b * GAP_SEQ;
+            gap_seq_count = *gap_seq_b -1;
+            return GAP + GAP_SEQ * gap_seq_count;
         }
         else
         {
@@ -59,7 +57,7 @@ int Similarity(char first, char second, int *gap_seq_a, int *gap_seq_b)
 
     if(first == second)
         return MATCH;
-    
+
     return MISMATCH;
 }
 
@@ -77,31 +75,33 @@ int Max(int val1, int val2, int val3)
 int FunctionSimilarity(int **mat, char a, char b, int i, int j, char *pos, int *gap_seq_a, int *gap_seq_b)
 {
     int v1=INT_MIN,v2=INT_MIN,v3=INT_MIN;
-    int result = 0;
+    int result = INT_MIN;
 
     if(i-1 >= 0 && j-1 >= 0)
-        v1 = mat[i-1][j-1] + Similarity(a, b, NULL, NULL);
+        v1 = mat[i-1][j-1] + Similarity(a, b, gap_seq_a, gap_seq_b);
     if(i-1 >= 0)
         v2 = mat[i-1][j] + Similarity(a, '-', gap_seq_a, gap_seq_b);
     if(j-1 >= 0)
         v3 = mat[i][j-1] + Similarity('-', b, gap_seq_a, gap_seq_b);
 
-    result = v1;
     if(v2 > result)
     {
         result = v2;
+        *pos = 'V';
     }
     if(v3 > result)
     {
         result = v3;
+        *pos = 'H';
+    }
+    if(v1 > result)
+    {
+        result = v1;
+        *pos = 'D';
     }
 
-    if(mat[i][j] == v1)
-        *pos = 'D';
-    else if(mat[i][j] == v2)
-        *pos = 'V';
-    else if(mat[i][j] == v3)
-        *pos = 'H';
+    if(result == INT_MIN)
+        printf("\nmat[%d][%d]:%d v1:%d v2:%d v3:%d\n", i,j, mat[i][j], v1, v2, v3);
     
     return result;
 }
@@ -127,9 +127,9 @@ void FreeMatrix(int **matrix)
 
 int** InitializeMatrix()
 {
-    int** mat = (int**) malloc(SIZEA * sizeof(int *));
+    int** mat = (int**) calloc(SIZEA, sizeof(int *));
     for (int i = 0; i < SIZEA; i++)
-        mat[i] = (int*) malloc(SIZEB * sizeof(int));
+        mat[i] = (int*) calloc(SIZEB, sizeof(int));
     
     return mat;
 }
@@ -188,10 +188,10 @@ double CalculateSimilarity(int **mat, char *vetA, char *vetB)
                 {
                     // calcula
                     if(j == 0) 
-                        mat[i][j] = i * -1;
+                        mat[i][j] = i * GAP;
                     else 
                         if(i == 0) 
-                            mat[i][j] = j * -1;
+                            mat[i][j] = j * GAP;
                         else
                             mat[i][j] = FunctionSimilarity(mat, vetA[i], vetB[j], i, j, &pos, &gap_seq_a, &gap_seq_b);
                 }          
@@ -205,7 +205,7 @@ double CalculateSimilarity(int **mat, char *vetA, char *vetB)
     printf("Alignment time: %f seconds\n", elapsed_time);
 
     if(mat[SIZEA-1][SIZEB-1] == INT_MIN)
-        printf("Not Completed... %d\n", mat[SIZEA-1][SIZEB-1]);
+        printf("<<Not Completed>> %d\n", mat[SIZEA-1][SIZEB-1]);
 
     // Destrua os semáforos quando não forem mais necessários
     for (int i = 0; i < N_BLOCKS; i++) 
