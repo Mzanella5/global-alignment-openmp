@@ -100,7 +100,7 @@ int FunctionSimilarity(int **mat, char a, char b, int i, int j, char *pos, int *
         *pos = 'D';
     }
 
-    if(result == INT_MIN && i > 0 && j > 0)
+    if(result == INT_MIN && i > 0 || j > 0)
         printf("\nmat[%d][%d]:%d v1:%d v2:%d v3:%d\n", i,j, mat[i][j], v1, v2, v3);
     
     return result;
